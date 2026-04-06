@@ -1,48 +1,53 @@
+import cv2
 import concurrent.futures
 import time
 
-# Task A: Simulating a data analysis task
-def perform_data_analysis():
-    print("[Task A] Starting data analysis...")
-    time.sleep(2) # Simulating time taken to process data
-    print("[Task A] Data analysis completed.")
-    return "Analysis Data"
+# --- Tugas 1: Pemrosesan Gambar (Intensif CPU) ---
+def apply_grayscale(frame):
+    # Mensimulasikan konversi frame ke skala abu-abu (grayscale)
+    return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-# Task B: Simulating a report generation task
-def generate_pdf_report():
-    print("[Task B] Starting PDF report generation...")
-    time.sleep(3) # Simulating time taken to generate a file
-    print("[Task B] PDF report generated.")
-    return "Report.pdf"
-
-# Task C: Simulating an I/O task like sending emails
-def send_notifications():
-    print("[Task C] Sending email notifications to users...")
-    time.sleep(1) # Simulating time taken to communicate with a server
-    print("[Task C] Notifications sent.")
-    return "Emails Sent"
-
-def main():
-    start_time = time.time()
-    print("--- Starting Task Parallelism Execution ---\n")
-
-    # Using ThreadPoolExecutor to run completely different tasks concurrently
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        # Submit different functions (tasks) to the executor
-        future_a = executor.submit(perform_data_analysis)
-        future_b = executor.submit(generate_pdf_report)
-        future_c = executor.submit(send_notifications)
-
-        # Retrieve results as they finish
-        result_a = future_a.result()
-        result_b = future_b.result()
-        result_c = future_c.result()
-
-    print("\n--- All Tasks Completed ---")
-    print(f"Total execution time: {time.time() - start_time:.2f} seconds")
+# --- Tugas 2: Analisis Fitur (Simulasi) ---
+def analyze_brightness(frame):
+    # Menghitung rata-rata di seluruh baris, kemudian kolom
+    avg_per_channel = frame.mean(axis=0).mean(axis=0) 
     
-    # If this was strictly sequential, it would take 2 + 3 + 1 = 6 seconds.
-    # Because of task parallelism, it should only take roughly as long as the longest task (~3 seconds).
+    # avg_per_channel berisi [B, G, R]. Kita ambil rata-rata dari 3 
+    # nilai tersebut untuk mendapatkan satu nilai kecerahan keseluruhan.
+    overall_avg = avg_per_channel.mean() 
+    
+    return f"Avg Brightness: {int(overall_avg)}"
+
+def process_video(video_path):
+    cap = cv2.VideoCapture(video_path)
+    
+    # Kita menggunakan ThreadPoolExecutor untuk I/O dan pemrosesan ringan.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Task Parallelism: Mengirim dua tugas berbeda untuk frame yang sama
+            future_gray = executor.submit(apply_grayscale, frame)
+            future_analysis = executor.submit(analyze_brightness, frame)
+
+            # Mengambil hasil (ini menunggu tugas paralel selesai untuk frame INI)
+            gray_frame = future_gray.result()
+            analysis_text = future_analysis.result()
+
+            # Menampilkan video yang telah diproses
+            cv2.putText(gray_frame, analysis_text, (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            
+            cv2.imshow('Task Parallelism Video Feed', gray_frame)
+
+            # Tekan 'q' untuk keluar
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    process_video("input_video.mp4")
